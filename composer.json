@@ -2,10 +2,6 @@
   "name": "puz/dynamic-mail",
   "description": "Change Laravel mail driver configurations during runtime.",
   "license": "MIT",
-  "support": {
-    "issues": "https://github.com/molteber/puz-dynamic-mail/issues",
-    "source": "https://github.com/molteber/puz-dynamic-mail"
-  },
   "authors": [
     {
       "name": "Morten Mehus",
