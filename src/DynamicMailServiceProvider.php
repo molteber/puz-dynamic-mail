@@ -20,6 +20,10 @@ class DynamicMailServiceProvider extends IlluminateServiceProvider
 
     public function register()
     {
+        $this->app->singleton(TransportManager::class, function ($app) {
+            return new TransportManager($app);
+        });
+
         $this->app->extend('mailer', function ($mailer, $app) {
             $config = $app->make('config')->get('mail');
 
@@ -44,20 +48,14 @@ class DynamicMailServiceProvider extends IlluminateServiceProvider
             return $mailer;
         });
 
-
-        $this->app->extend('swift.transport', function ($transporter, $app) {
-            return new TransportManager($app);
-        });
-
         $this->app->alias('mailer', Mailer::class);
-        $this->app->alias('swift.transport', TransportManager::class);
     }
 
     public function boot()
     {
         // Extend the transport manager
         /** @var \Puz\DynamicMail\TransportManager $transportManager */
-        $transportManager = $this->app->make('swift.transport');
+        $transportManager = $this->app->make(TransportManager::class);
         $transportManager->extend('dynamic_driver', function ($app) use ($transportManager) {
 
             return function ($driver, $config) use ($app, $transportManager) {
@@ -70,6 +68,7 @@ class DynamicMailServiceProvider extends IlluminateServiceProvider
 
                 $transportManager->resetDriverCallback($driver);
 
+                $config = array_merge($oldConfig, $config);
                 $app['config']->set($this->drivers[$driver], $config);
                 $transporter = $transportManager->driver($driver);
 
@@ -106,7 +105,7 @@ class DynamicMailServiceProvider extends IlluminateServiceProvider
     public function provides()
     {
         return [
-            'mailer', 'swift.transport',
+            'mailer', TransportManager::class,
         ];
     }
 }

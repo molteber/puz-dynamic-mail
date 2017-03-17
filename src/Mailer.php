@@ -12,7 +12,7 @@ class Mailer extends IlluminateMailer
         $newInstance = clone $this;
 
         /** @var \Illuminate\Support\Manager $manager */
-        $manager = app('swift.transport');
+        $manager = app(TransportManager::class);
 
         /** @var callable $customDriver */
         $customDriver = $manager->driver('dynamic_driver');
