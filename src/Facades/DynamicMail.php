@@ -1,5 +1,7 @@
 <?php
 
+namespace Puz\DynamicMail\Facades;
+
 use Illuminate\Support\Facades\Facade;
 
 class DynamicMail extends Facade
