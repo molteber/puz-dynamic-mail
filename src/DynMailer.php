@@ -18,12 +18,9 @@ class DynMailer extends IlluminateMailer
      */
     public function via($driver, array $config = [])
     {
-        $newInstance = clone $this;
+        $this->customDriver = $driver;
 
-        $newInstance->customDriver = $driver;
-        $newInstance->with($config);
-
-        return $newInstance;
+        return $this->with($config);
     }
 
     /**
@@ -44,11 +41,10 @@ class DynMailer extends IlluminateMailer
         $customDriver = $manager->driver('puz.dynamic.driver');
 
         /** @var \Swift_Transport $transporter */
-        $transporter = $customDriver($this->customDriver, $config);
+        $transporter = $customDriver($newInstance->customDriver, $config);
 
         $newInstance->setSwiftMailer(new \Swift_Mailer($transporter));
 
         return $newInstance;
-
     }
 }
