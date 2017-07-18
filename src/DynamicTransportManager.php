@@ -4,7 +4,7 @@ namespace Puz\DynamicMail;
 
 use Illuminate\Mail\TransportManager as IlluminateTransportManager;
 
-class TransportManager extends IlluminateTransportManager
+class DynamicTransportManager extends IlluminateTransportManager
 {
     public function getDriverCallback($driver)
     {

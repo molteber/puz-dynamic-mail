@@ -4,7 +4,7 @@ namespace Puz\DynamicMail;
 
 use Illuminate\Mail\Mailer as IlluminateMailer;
 
-class Mailer extends IlluminateMailer
+class DynMailer extends IlluminateMailer
 {
 
     public function withConfig($driver, array $config)
@@ -12,10 +12,10 @@ class Mailer extends IlluminateMailer
         $newInstance = clone $this;
 
         /** @var \Illuminate\Support\Manager $manager */
-        $manager = app(TransportManager::class);
+        $manager = app('puz.dynamic.transport');
 
         /** @var callable $customDriver */
-        $customDriver = $manager->driver('dynamic_driver');
+        $customDriver = $manager->driver('puz.dynamic.driver');
 
         /** @var \Swift_Transport $transporter */
         $transporter = $customDriver($driver, $config);
