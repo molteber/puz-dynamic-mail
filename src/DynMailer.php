@@ -7,7 +7,15 @@ use Illuminate\Mail\Mailer as IlluminateMailer;
 class DynMailer extends IlluminateMailer
 {
 
-    public function withConfig($driver, array $config)
+    /**
+     * Create a new instance of the mailer for given config
+     *
+     * @param string $driver
+     * @param array  $config
+     *
+     * @return \Puz\DynamicMail\DynMailer
+     */
+    public function withConfig($driver, array $config = [])
     {
         $newInstance = clone $this;
 
