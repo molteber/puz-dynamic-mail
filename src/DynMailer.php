@@ -6,7 +6,8 @@ use Illuminate\Mail\Mailer as IlluminateMailer;
 
 class DynMailer extends IlluminateMailer
 {
-    protected $customDriver;
+    /** @var array An array containing the driver callback and name */
+    protected $customDriver = [];
 
     /**
      * Create a new mailer instance based on driver (and config for given driver)
@@ -18,13 +19,20 @@ class DynMailer extends IlluminateMailer
      */
     public function via($driver, array $config = [])
     {
-        $this->customDriver = $driver;
+        $newInstance = clone $this;
 
-        return $this->with($config);
+        $this->prepareDriver();
+
+        $newInstance->customDriver['name'] = $driver;
+        $transporter = $newInstance->customDriver['callback']($newInstance->customDriver['name'], $config);
+
+        $newInstance->setSwiftMailer(new \Swift_Mailer($transporter));
+
+        return $newInstance;
     }
 
     /**
-     * Create new mailer instance and set config for current mailer driver
+     * Sets a new Swift mailer instance and set config for current mailer driver
      *
      * @param array $config
      *
@@ -32,19 +40,33 @@ class DynMailer extends IlluminateMailer
      */
     public function with(array $config)
     {
-        $newInstance = clone $this;
-
-        /** @var \Illuminate\Support\Manager $manager */
-        $manager = app('puz.dynamic.transport');
-
-        /** @var callable $customDriver */
-        $customDriver = $manager->driver('puz.dynamic.driver');
+        $this->prepareDriver();
 
         /** @var \Swift_Transport $transporter */
-        $transporter = $customDriver($newInstance->customDriver, $config);
+        $transporter = $this->customDriver['callback']($this->customDriver['name'], $config);
 
-        $newInstance->setSwiftMailer(new \Swift_Mailer($transporter));
+        $this->setSwiftMailer(new \Swift_Mailer($transporter));
 
-        return $newInstance;
+        return $this;
+    }
+
+    /**
+     * Sets the customDriver property if not set via the "via" method.
+     * This makes it possible to override config for default driver without the need to call "via" first.
+     */
+    protected function prepareDriver()
+    {
+        if (empty($this->customDriver)) {
+
+            /** @var \Illuminate\Support\Manager $manager */
+            $manager = app('puz.dynamic.transport');
+
+            /** @var callable $customDriver */
+            $customDriver = $manager->driver('puz.dynamic.driver');
+
+            $config = app('config')->get('mail');
+
+            $this->customDriver = ['callback' => $customDriver, 'name' => $config['driver']];
+        }
     }
 }
