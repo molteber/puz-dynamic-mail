@@ -21,7 +21,7 @@ class DynMailer extends IlluminateMailer
     {
         $newInstance = clone $this;
 
-        $this->prepareDriver();
+        $newInstance->prepareDriver();
 
         $newInstance->customDriver['name'] = $driver;
         $transporter = $newInstance->customDriver['callback']($newInstance->customDriver['name'], $config);
@@ -40,19 +40,25 @@ class DynMailer extends IlluminateMailer
      */
     public function with(array $config)
     {
-        $this->prepareDriver();
+        if ($this->prepareDriver()) {
+            $instance = clone $this;
+        } else {
+            $instance = $this;
+        }
 
         /** @var \Swift_Transport $transporter */
-        $transporter = $this->customDriver['callback']($this->customDriver['name'], $config);
+        $transporter = $instance->customDriver['callback']($instance->customDriver['name'], $config);
 
-        $this->setSwiftMailer(new \Swift_Mailer($transporter));
+        $instance->setSwiftMailer(new \Swift_Mailer($transporter));
 
-        return $this;
+        return $instance;
     }
 
     /**
      * Sets the customDriver property if not set via the "via" method.
      * This makes it possible to override config for default driver without the need to call "via" first.
+     *
+     * @return bool true if had to be prepared.
      */
     protected function prepareDriver()
     {
@@ -67,6 +73,9 @@ class DynMailer extends IlluminateMailer
             $config = app('config')->get('mail');
 
             $this->customDriver = ['callback' => $customDriver, 'name' => $config['driver']];
+
+            return true;
         }
+        return false;
     }
 }
