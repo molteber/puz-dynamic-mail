@@ -6,22 +6,54 @@
 ## Install
 1. `composer require puz/dynamic-mail`
 2. Add `\Puz\DynamicMail\DynamicMailServiceProvider::class,` to your list of active providers.
-3. You're almost ready!
-
-## How to use it
-Normally you use either the `Mail` facade or load a `$mailer` object. What i have done is to extend the current mailer by adding a custom method: `withConfig(string $driver, array $config = [])`.
-
-Examples:
+3. Add the facade to your list of aliases. You can either overwrite Laravels own facade (no worries, this package only extend the functionality) or you can add a new one specifically for dynamic mail configuration:
 ```php
 <?php
 // ...
-Mail::withConfig('mailgun', [
-    'domain' => 'my-customers-domain@domain.tld',
-    'secret' => 'their-secret-api-key'
-])->to($user)->send(new Holy\Mail);
+return [
+    // ...
+    'aliases' => [
+        // ...
+        // Overwrite Laravel mailer
+        'Mail' => Puz\DynamicMail\Facades\DynamicMail::class,
+        // Own mailer
+        'DynamicMail' => Puz\DynamicMail\Facades\DynamicMail::class,
+    ]
+];
 ```
-By using the withConfig method, it creates a new instance of the mailer, including a new swift mailer and swift transporter. By doing this, i preserve the default mail settings so you can use the methods without setting any config.
+4. You're almost ready!
 
-You just simply give it the driver (which must be supported) and the configuration you would need to set for the current driver.
+## How to use it
+*In the examples I have overwritten Laravel mailer facade with this packages facade.*
 
-I however do not think this is a perfect solution, so i gladly accept any other suggestions which may be better.
+Lets say you have these 3 situations:
+1. You use the mailgun driver, but need to send from another domain
+2. You use the smtp driver but need to change to a different driver which settings is already defined in `config/services.php`
+3. You use the smtp driver but need to change to another service which is not defined.
+
+Here is how to do so!
+```php
+<?php
+// 1
+Mail::with(['domain' => 'another.domain.tld'])->to('..')->send('..');
+
+// 2
+Mail::via('mailgun')->to('..')->send('..');
+
+// 3
+Mail::via('mailgun')->with(['domain' => 'hello.tld', 'secret' => 'https://www.youtube.com/watch?v=Iz-8CSa9xj8'])->to('..')->send('..');
+```
+
+## Short about the methods:
+**via** method allows you to change the driver. Each time you use the **via** method, it creates a new instance of the mailer. This is so you can still use the default mailer if you'ld like. It takes a the driver name (string) as first argument, but allows you to set the config directly (as with **with**) in the second argument.
+
+**with** is the one to set the configuration. It takes an array and takes the same array as you would do it in `config/services.php`.
+
+## Supported drivers
+I did set it to only allow some of the integrated mail services you can use with Laravel.
+These are as follow:
+* smtp
+* sendmail
+* ses
+* mailgun
+* mandrill
