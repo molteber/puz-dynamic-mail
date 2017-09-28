@@ -10,8 +10,8 @@
   ],
   "require": {
     "php": ">=5.6.4",
-    "illuminate/support": "5.4.*",
-    "illuminate/mail": "5.4.*"
+    "illuminate/support": "5.*.*",
+    "illuminate/mail": "5.*.*"
   },
   "autoload": {
     "psr-4": {
