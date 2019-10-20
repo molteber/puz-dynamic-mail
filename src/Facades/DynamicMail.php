@@ -4,6 +4,9 @@ namespace Puz\DynamicMail\Facades;
 
 use Illuminate\Support\Facades\Facade;
 
+/**
+ * @method static \Puz\DynamicMail\DynMailer via(string $via, array $config=[])
+ */
 class DynamicMail extends Facade
 {
     /**
@@ -13,6 +16,6 @@ class DynamicMail extends Facade
      */
     protected static function getFacadeAccessor()
     {
-        return 'puz.dynamic.mailer';
+        return 'puz.dynamic-mail.mailer';
     }
 }

@@ -2,38 +2,47 @@
 
 namespace Puz\DynamicMail;
 
-use Illuminate\Support\Arr;
-use Illuminate\Support\Str;
-use Illuminate\Support\ServiceProvider as IlluminateServiceProvider;
+use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Mail\MailServiceProvider;
+use Illuminate\Mail\Markdown;
+use Illuminate\Notifications\ChannelManager;
+use Illuminate\Support\Facades\Notification;
+use Puz\DynamicMail\Channels\DynamicMailChannel;
+use Swift_DependencyContainer;
+use Swift_Mailer;
 
-class DynamicMailServiceProvider extends IlluminateServiceProvider
+class DynamicMailServiceProvider extends MailServiceProvider
 {
-    protected $defer = true;
-
-    protected $drivers = [
-        'smtp' => 'mail',
-        'sendmail' => 'mail.sendmail',
-        'ses' => 'services.ses',
-        'mailgun' => 'services.mailgun',
-        'mandrill' => 'services.mandrill',
-    ];
-
     public function register()
     {
-        $this->registerDynamicTransport();
-        $this->registerDynamicMailer();
+        parent::register();
+
+        $this->mergeConfigFrom(
+            __DIR__ . '/../config.php',
+            'puz-dynamic-mail'
+        );
+
+        Notification::resolved(function (ChannelManager $service) {
+            $service->extend('dynamic-mail', function ($app) {
+                return new DynamicMailChannel($app->make('puz.dynamic-mail.mailer'), $app->make(Markdown::class));
+            });
+        });
     }
 
-    protected function registerDynamicMailer()
+    protected function registerIlluminateMailer()
     {
-        $this->app->singleton('puz.dynamic.mailer', function ($app) {
+        $this->registerDynamicTransport();
+
+        $this->app->singleton('puz.dynamic-mail.mailer', function (Application $app) {
             $config = $app->make('config')->get('mail');
 
             // Once we have create the mailer instance, we will set a container instance
             // on the mailer. This allows us to resolve mailer classes via containers
             // for maximum testability on said classes instead of passing Closures.
             $dynMailer = new DynMailer(
-                $app['view'], $app['swift.mailer'], $app['events']
+                $app['view'],
+                $app['puz.dynamic-mail.swift.mailer'],
+                $app['events']
             );
 
             if ($app->bound('queue')) {
@@ -51,6 +60,27 @@ class DynamicMailServiceProvider extends IlluminateServiceProvider
         });
     }
 
+    public function registerSwiftMailer()
+    {
+        $this->registerDynamicTransport();
+
+        // Once we have the transporter registered, we will register the actual Swift
+        // mailer instance, passing in the transport instances, which allows us to
+        // override this transporter instances during app start-up if necessary.
+        $this->app->singleton('puz.dynamic-mail.swift.mailer', function (Application $app) {
+            if ($domain = $app->make('config')->get('mail.domain')) {
+                Swift_DependencyContainer::getInstance()
+                    ->register('mime.idgenerator.idright')
+                    ->asValue($domain);
+            }
+
+            /** @var \Puz\DynamicMail\DynamicTransportManager $transport */
+            $transport = $app['puz.dynamic-mail.swift.transport'];
+
+            return new Swift_Mailer($transport->driver());
+        });
+    }
+
     /**
      * Register the Dynamic Transport instance.
      *
@@ -58,33 +88,38 @@ class DynamicMailServiceProvider extends IlluminateServiceProvider
      */
     protected function registerDynamicTransport()
     {
-        $this->app->singleton('puz.dynamic.transport', function ($app) {
+        $this->app->singleton('puz.dynamic-mail.swift.transport', function ($app) {
             return new DynamicTransportManager($app);
         });
     }
 
+    /**
+     * @throws \Illuminate\Contracts\Container\BindingResolutionException
+     */
     public function boot()
     {
+        $this->publishes([
+            __DIR__ . '/../config.php' => config_path('puz-dynamic-mailer.php'),
+        ]);
         // Extend the transport manager
         /** @var \Puz\DynamicMail\DynamicTransportManager $transportManager */
-        $transportManager = $this->app->make('puz.dynamic.transport');
-        $transportManager->extend('puz.dynamic.driver', function ($app) use ($transportManager) {
-
+        $transportManager = $this->app->make('puz.dynamic-mail.swift.transport');
+        $transportManager->extend('puz.dynamic-mail.driver', function ($app) use ($transportManager) {
             return function ($driver, $config) use ($app, $transportManager) {
-
-                if (!array_key_exists($driver, $this->drivers)) {
+                $drivers = $app['config']->get('puz-dynamic-mail.drivers');
+                if (!array_key_exists($driver, $drivers)) {
                     return $transportManager->driver($driver);
                 }
                 $oldCallback = $transportManager->getDriverCallback($driver);
-                $oldConfig = $app['config']->get($this->drivers[$driver]);
+                $oldConfig = $app['config']->get($drivers[$driver]);
 
                 $transportManager->resetDriverCallback($driver);
 
                 $config = array_merge($oldConfig, $config);
-                $app['config']->set($this->drivers[$driver], $config);
+                $app['config']->set($drivers[$driver], $config);
                 $transporter = $transportManager->driver($driver);
 
-                $app['config']->set($this->drivers[$driver], $oldConfig);
+                $app['config']->set($drivers[$driver], $oldConfig);
                 $transportManager->setDriverCallback($driver, $oldCallback);
 
                 return $transporter;
@@ -92,21 +127,9 @@ class DynamicMailServiceProvider extends IlluminateServiceProvider
         });
     }
 
-    /**
-     * Set a global address on the mailer by type.
-     *
-     * @param  \Illuminate\Mail\Mailer  $mailer
-     * @param  array  $config
-     * @param  string  $type
-     * @return void
-     */
-    protected function setGlobalAddress($mailer, array $config, $type)
+    protected function registerMarkdownRenderer()
     {
-        $address = Arr::get($config, $type);
-
-        if (is_array($address) && isset($address['address'])) {
-            $mailer->{'always'.Str::studly($type)}($address['address'], $address['name']);
-        }
+        //
     }
 
     /**
@@ -117,9 +140,9 @@ class DynamicMailServiceProvider extends IlluminateServiceProvider
     public function provides()
     {
         return [
-            'puz.dynamic.mailer',
-            'puz.dynamic.transport',
-
+            'puz.dynamic-mail.mailer',
+            'puz.dynamic-mail.swift.mailer',
+            'puz.dynamic-mail.swift.transport',
         ];
     }
 }
