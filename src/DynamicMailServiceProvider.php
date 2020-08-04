@@ -80,7 +80,11 @@ class DynamicMailServiceProvider extends IlluminateServiceProvider
 
                 $transportManager->resetDriverCallback($driver);
 
-                $config = array_merge($oldConfig, $config);
+                if ($driver === 'sendmail' && !is_array($oldConfig)) {
+                    $config = !is_array($config) ? $config : $oldConfig;
+                } else {
+                    $config = array_merge($oldConfig, $config);
+                }
                 $app['config']->set($this->drivers[$driver], $config);
                 $transporter = $transportManager->driver($driver);
 
